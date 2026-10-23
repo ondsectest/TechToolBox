@@ -1,0 +1,194 @@
+// UI for "think while you wait": idea cards, predictions, lessons, stats & team page.
+// Shared by the web app and the extension. `store` = { get(key), set(key, value) } (async), local to this machine.
+import { deckFor, lessonFor, scorePredictions, isBug, emptyStats, teamTable, COLLECTION } from './fun.js';
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const funEnabled = async (store) => (await store.get('fun.enabled')) !== false;
+async function bumpStats(store, patch) {
+  const s = { ...emptyStats(), ...((await store.get('fun.stats')) || {}) };
+  for (const [k, v] of Object.entries(patch)) s[k] = (s[k] || 0) + v;
+  await store.set('fun.stats', s);
+  return s;
+}
+
+// ---------- Idea cards (during scans and runs)
+export async function mountIdeaCards(el, { getForms, suiteId = 'unsorted', store }) {
+  if (!el || !(await funEnabled(store))) return;
+  let deck = [], i = 0, seenForms = -1;
+  const fresh = () => { const forms = getForms(); if (forms.length !== seenForms) { seenForms = forms.length; deck = deckFor(forms); i = 0; } };
+  const draw = () => {
+    fresh();
+    const c = deck[i % deck.length];
+    el.innerHTML = `<div class="panel fun-card" aria-live="polite">
+      <div class="row spread"><strong class="small">💡 While you wait: a test idea</strong><span class="muted small">${i % deck.length + 1} / ${deck.length}</span></div>
+      <p class="fun-idea">${esc(c.text)}</p>
+      <div class="row spread"><span class="muted small">${esc(c.source)}</span>
+        <span class="row"><button class="mini" data-save>Save to my ideas</button><button class="mini" data-next>Next idea</button></span></div>
+      <span class="small muted" data-saved role="status"></span></div>`;
+    el.querySelector('[data-next]').onclick = () => { i++; draw(); };
+    el.querySelector('[data-save]').onclick = async () => {
+      const all = (await store.get('fun.ideas')) || {};
+      (all[suiteId] ||= []).push({ text: c.text, source: c.source, at: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+      await store.set('fun.ideas', all);
+      await bumpStats(store, { ideasSaved: 1 });
+      el.querySelector('[data-saved]').textContent = suiteId === 'unsorted' ? 'Saved. It will move to this suite when you create it.' : 'Saved to this suite\'s ideas.';
+    };
+  };
+  draw();
+}
+
+// Ideas saved during discovery belong to the suite created from it.
+export async function adoptUnsortedIdeas(store, suiteId) {
+  const all = (await store.get('fun.ideas')) || {};
+  if (!all.unsorted?.length) return;
+  all[suiteId] = [...(all[suiteId] || []), ...all.unsorted];
+  delete all.unsorted;
+  await store.set('fun.ideas', all);
+}
+export async function ideasFor(store, suiteId) { return ((await store.get('fun.ideas')) || {})[suiteId] || []; }
+
+export async function mountSavedIdeas(el, { store, suiteId }) {
+  const draw = async () => {
+    const list = await ideasFor(store, suiteId);
+    el.innerHTML = list.length ? `<h3>Test ideas you saved (${list.length})</h3><div class="panel"><table><tbody>${list.map((x, n) => `<tr>
+      <td>${esc(x.text)}<div class="muted small">${esc(x.source)} · saved ${esc(x.at)}</div></td>
+      <td style="width:40px"><button class="danger mini" data-del="${n}" aria-label="Remove idea">×</button></td></tr>`).join('')}</tbody></table>
+      <p class="muted small" style="margin:8px 0 0">These are for you to try by hand. They are listed in the downloaded report.</p></div>` : '';
+    el.querySelectorAll('[data-del]').forEach((b) => { b.onclick = async () => {
+      const all = (await store.get('fun.ideas')) || {};
+      all[suiteId].splice(Number(b.dataset.del), 1);
+      await store.set('fun.ideas', all); draw();
+    }; });
+  };
+  await draw();
+}
+
+// ---------- Predictions (during a run): "Will this check find a bug?"
+export async function mountPredictions(el, { cases, runId, getRows, store, isRunning }) {
+  if (!el || !(await funEnabled(store))) return;
+  const key = `fun.preds.${runId}`;
+  const preds = (await store.get(key)) || {};
+  const skipped = new Set();
+  let done = new Set();
+  const pending = () => cases.filter((c) => c.enabled && !done.has(String(c.id)) && !(String(c.id) in preds) && !skipped.has(String(c.id)));
+  const draw = () => {
+    const next = pending()[0];
+    const made = Object.keys(preds).length;
+    el.innerHTML = next ? `<div class="panel fun-card">
+      <div class="row spread"><strong class="small">🎯 Predict: will this check find a bug?</strong><span class="muted small">${made} prediction${made === 1 ? '' : 's'} so far</span></div>
+      <p class="fun-idea">${esc(next.title)}</p>
+      <div class="row"><button class="mini" data-guess="bug">Yes, a bug</button><button class="mini" data-guess="ok">No bug</button><button class="mini" data-skip>Skip</button></div></div>`
+      : made ? `<div class="panel fun-card"><p class="small" style="margin:0">🎯 ${made} predictions made. Your score appears when the run finishes.</p></div>` : '';
+    el.querySelectorAll('[data-guess]').forEach((b) => { b.onclick = async () => { preds[String(next.id)] = b.dataset.guess; await store.set(key, preds); draw(); }; });
+    el.querySelector('[data-skip]')?.addEventListener('click', () => { skipped.add(String(next.id)); draw(); });
+  };
+  draw();
+  const timer = setInterval(async () => {
+    if (!el.isConnected || !isRunning()) { clearInterval(timer); return; }
+    const rows = await getRows().catch(() => []);
+    const before = done.size;
+    done = new Set(rows.map((r) => String(r.case_id)));
+    if (done.size !== before) draw(); // finished checks can no longer be predicted
+  }, 2000);
+}
+
+// ---------- Results: prediction score + per-row marks
+export async function predictionSummary(store, runId, rows) {
+  const preds = (await store.get(`fun.preds.${runId}`)) || {};
+  const s = scorePredictions(preds, rows);
+  if (!s.total) return { html: '', marks: {} };
+  const scored = (await store.get('fun.scoredRuns')) || [];
+  if (!scored.includes(runId)) { // count each run once in the tester's stats
+    scored.push(runId); await store.set('fun.scoredRuns', scored);
+    await bumpStats(store, { predictions: s.total, correct: s.correct, runsPredicted: 1 });
+  }
+  const pct = Math.round((100 * s.correct) / s.total);
+  const marks = Object.fromEntries(s.judged.map((x) => [x.caseId, { right: (x.guess === 'bug') === isBug(x.status), guess: x.guess }]));
+  const html = `<div class="panel fun-card" style="margin:12px 0"><strong>🎯 Your predictions: ${s.correct} of ${s.total} right (${pct}%)</strong>
+    <span class="muted small"> · ${pct >= 80 ? 'Sharp instincts.' : pct >= 50 ? 'Good. The wrong ones are where the learning is.' : 'This app surprised you; read the lessons on the ones you missed.'}</span></div>`;
+  return { html, marks };
+}
+export const predictionMark = (marks, caseId) => {
+  const m = marks[String(caseId)];
+  return m ? `<span class="chip ${m.right ? 's-pass' : 's-fail'}" title="You predicted: ${m.guess === 'bug' ? 'a bug' : 'no bug'}">${m.right ? '✓' : '✗'} you said ${m.guess === 'bug' ? 'bug' : 'no bug'}</span>` : '';
+};
+
+// ---------- Lessons on failures
+export const lessonButtonHtml = (row) => (isBug(row.status) ? `<button class="mini" data-lesson="${row.case_id}" aria-expanded="false">Why?</button>` : '');
+export const lessonPanelHtml = (row) => (isBug(row.status) ? `<div data-lesson-panel="${row.case_id}"></div>` : '');
+export function wireLessons(root, rows, { store, runId }) {
+  root.querySelectorAll('[data-lesson]').forEach((b) => {
+    b.onclick = async () => {
+      const panel = root.querySelector(`[data-lesson-panel="${b.dataset.lesson}"]`);
+      if (panel.innerHTML) { panel.innerHTML = ''; b.setAttribute('aria-expanded', 'false'); return; }
+      b.setAttribute('aria-expanded', 'true');
+      const L = lessonFor(rows.find((r) => String(r.case_id) === b.dataset.lesson));
+      panel.innerHTML = `<div class="panel fun-card" style="margin-top:8px">
+        <strong>📘 ${esc(L.title)}</strong>
+        <p class="small" style="margin:6px 0"><strong>What's happening:</strong> ${esc(L.what)}</p>
+        <p class="small" style="margin:6px 0"><strong>Why it happens:</strong> ${esc(L.why)}</p>
+        <p class="small" style="margin:6px 0 2px"><strong>Where else to look:</strong></p>
+        <ul class="small" style="margin:0 0 6px">${L.look.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        <span class="muted small">Related idea: ${esc(L.idea)}</span></div>`;
+      const read = (await store.get('fun.lessonsSeen')) || [];
+      const id = `${runId}:${b.dataset.lesson}`;
+      if (!read.includes(id)) { read.push(id); await store.set('fun.lessonsSeen', read.slice(-500)); await bumpStats(store, { lessonsRead: 1 }); }
+    };
+  });
+}
+
+// ---------- "My stats & team" page
+export async function renderStatsPage(root, { store, download }) {
+  const stats = { ...emptyStats(), ...((await store.get('fun.stats')) || {}) };
+  const team = (await store.get('fun.team')) || [];
+  const enabled = await funEnabled(store);
+  const acc = stats.predictions ? `${Math.round((100 * stats.correct) / stats.predictions)}%` : '—';
+  const rows = teamTable(team);
+  root.innerHTML = `<h1>My stats & team</h1>
+    <p class="sub">Idea cards, predictions and lessons while you test. Everything is kept on this computer; export a file to compare with your team.</p>
+    <div class="panel stack">
+      <label class="row"><input type="checkbox" id="funOn" ${enabled ? 'checked' : ''}> Show idea cards and predictions while scanning and running</label>
+      <label class="field" style="max-width:320px">Your name (shown to your team)<input type="text" id="funName" value="${esc(stats.name)}" maxlength="40" autocomplete="name"></label>
+      <div class="summary">
+        <span class="chip s-pass">Prediction accuracy ${acc}</span>
+        <span class="chip s-not_verified">${stats.correct} of ${stats.predictions} predictions right</span>
+        <span class="chip s-not_verified">${stats.ideasSaved} idea${stats.ideasSaved === 1 ? '' : 's'} saved</span>
+        <span class="chip s-not_verified">${stats.lessonsRead} lesson${stats.lessonsRead === 1 ? '' : 's'} read</span>
+      </div>
+      <div class="row"><button class="primary" id="funExport">Export my stats</button><span class="small muted" id="funMsg" role="status"></span></div>
+    </div>
+    <h2>Team leaderboard</h2>
+    <div class="panel stack">
+      <label class="field">Import teammates' stats files (.json, several at once)<input type="file" id="funImport" accept=".json,application/json" multiple></label>
+      ${rows.length ? `<table><thead><tr><th>#</th><th>Tester</th><th>Accuracy</th><th>Predictions</th><th>Ideas saved</th><th>Lessons</th></tr></thead><tbody>
+        ${rows.map((r, n) => `<tr><td>${r.predictions >= 5 ? n + 1 : '—'}</td><td>${esc(r.name)}</td><td>${r.accuracy == null ? '—' : `${r.accuracy}%`}</td><td>${r.predictions}</td><td>${r.ideasSaved}</td><td>${r.lessonsRead}</td></tr>`).join('')}
+      </tbody></table><p class="muted small" style="margin:0">Ranked by accuracy; testers with fewer than 5 predictions are listed but not ranked.</p><div class="row"><button class="mini" id="funClear">Clear team list</button></div>`
+      : '<p class="muted small" style="margin:0">No team files yet. Ask teammates to click "Export my stats" and send you the file.</p>'}
+    </div>
+    <h2>Credits</h2>
+    <p class="small muted">Idea cards and lessons draw on the <a href="${COLLECTION.url}" target="_blank" rel="noopener">${COLLECTION.name}</a> collection, an initiative by Santhosh Tuppad with many community contributors (listed in its README). Each card names the mindmap it comes from; "36 Days of Web Testing" is by Rob Lambert.</p>`;
+  const $ = (id) => root.querySelector(`#${id}`);
+  $('funOn').onchange = async () => { await store.set('fun.enabled', $('funOn').checked); };
+  $('funName').onchange = async () => { const s = { ...stats, name: $('funName').value.trim() }; await store.set('fun.stats', s); };
+  $('funExport').onclick = async () => {
+    const s = { ...emptyStats(), ...((await store.get('fun.stats')) || {}), name: $('funName').value.trim() };
+    if (!s.name) { $('funMsg').textContent = 'Enter your name first, so your team knows whose file it is.'; $('funName').focus(); return; }
+    await store.set('fun.stats', s);
+    download(`sankalpa-stats-${s.name.replace(/[^\w-]+/g, '-').toLowerCase()}.json`, JSON.stringify({ sankalpaStats: 1, ...s, exportedAt: new Date().toISOString() }, null, 2));
+    $('funMsg').textContent = 'Downloaded. Send the file to your team.';
+  };
+  $('funImport').onchange = async () => {
+    const list = (await store.get('fun.team')) || [];
+    for (const file of $('funImport').files) {
+      try {
+        const j = JSON.parse(await file.text());
+        if (!j.sankalpaStats) continue;
+        const at = list.findIndex((x) => x.name === j.name);
+        if (at >= 0) list[at] = j; else list.push(j); // newer file replaces the same tester
+      } catch { /* not a stats file */ }
+    }
+    await store.set('fun.team', list);
+    renderStatsPage(root, { store, download });
+  };
+  $('funClear')?.addEventListener('click', async () => { await store.set('fun.team', []); renderStatsPage(root, { store, download }); });
+}

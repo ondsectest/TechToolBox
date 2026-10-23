@@ -1,0 +1,118 @@
+// Detailed Markdown report, shared by the web app (src/report.js) and the extension (copied by its build).
+// Input: the run detail { run, suite, rows, formTitle, forms, settings, consent }.
+import { fieldRows, formFacts, fieldsMarkdown, PART_LABEL } from './fields-ui.js';
+
+const LABEL = { pass: '✅ Pass', fail: '❌ Fail', warn: '⚠️ Warning', not_verified: '⏸ Not verified' };
+const ORDER = { fail: 0, warn: 1, not_verified: 2, pass: 3 };
+const MAX = 4000;
+const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const cut = (s, n = MAX) => { s = String(s ?? ''); return s.length > n ? `${s.slice(0, n)}\n… (${s.length - n} more characters)` : s; };
+const fence = (lang, body) => { const b = String(body ?? ''); const f = b.includes('```') ? '````' : '```'; return `${f}${lang}\n${b}\n${f}`; };
+const pretty = (body) => {
+  if (body == null || body === '') return '(empty)';
+  if (typeof body === 'object') return cut(JSON.stringify(body, null, 2));
+  try { return cut(JSON.stringify(JSON.parse(body), null, 2)); } catch { return cut(body); }
+};
+const headersText = (h) => Object.entries(h || {}).map(([k, v]) => `${k}: ${v}`).join('\n');
+const preview = (v) => {
+  const s = String(v ?? '');
+  if (!s.length) return '`""` (empty)';
+  const shown = s.length > 120 ? `${s.slice(0, 60)}…${s.slice(-30)}` : s;
+  return `\`${shown.replace(/`/g, "'")}\` (${s.length} UTF-16 units, ${[...s].length} characters)`;
+};
+
+function httpExchange(r, title) {
+  const out = [`**${title}** — \`${r.method} ${r.url}\` → **HTTP ${r.status ?? '—'}**${r.ms != null ? ` in ${r.ms} ms` : ''}`, ''];
+  out.push('Request:', fence('http', `${r.method} ${r.url}\n${headersText(r.headers)}\n\n${pretty(r.body)}`), '');
+  out.push('Response:', fence('http', `HTTP ${r.status ?? '—'}\n${headersText(r.responseHeaders)}\n\n${pretty(r.text ?? r.response)}`), '');
+  return out.join('\n');
+}
+
+const EV = {
+  typing: 'Typing', limit: 'Limit', typed: 'Characters typed', kept: 'Characters kept', errorAfterLeaving: 'Error after leaving the field',
+  reachedBy: 'Reached the form by', focusedAfterLink: 'Focused after the link', focusedAfterReload: 'Focused after reload', expectedField: 'Expected focus on',
+  keptEmoji: 'Emoji kept', utf16: 'UTF-16 units in field', invalid: 'Marked invalid', error: 'Error shown', counter: 'Counter',
+  missing: 'Fields without a label', suggested: 'Suggested limit', selection: 'Cursor (start, end)', valueLength: 'Value length',
+  key: 'Focused field', desc: 'Focused element', http: 'Final HTTP status', sentLength: 'Length sent (UTF-16 units)', codePoints: 'Characters sent',
+  delayMs: 'Delay between requests (ms)',
+};
+const SKIP = new Set(['responses', 'recheck', 'response', 'valueSent']);
+
+function caseDetail(r, field, fieldRow) {
+  const c = r.case;
+  const ev = r.evidence || {};
+  const out = [`#### ${LABEL[r.status]} — ${c.title}${c.builtin ? '' : ' *(custom)*'}`, ''];
+  out.push(`- **Result:** ${r.detail || '—'}`);
+  out.push(`- **Check:** ${PART_LABEL[c.part] || c.part} · ${c.kind}${c.input_kind ? ` · input \`${c.input_kind}\`` : ''} · expected **${c.expected}**${r.change ? ` · change since last run: **${r.change}**` : ''}`);
+  if ('valueSent' in ev) out.push(`- **Value sent:** ${preview(ev.valueSent)}`);
+  if (field) {
+    out.push(`- **Field:** ${field.label || field.key} (\`${field.key}\`), type \`${field.type}\`${field.required ? ', required' : ''}`);
+    if (fieldRow) out.push(`- **Client-side rule:** ${fieldRow.limit}${fieldRow.source ? ` (${fieldRow.source})` : ''}${fieldRow.counter ? ` · counter shows /${fieldRow.counter.of}` : ''}${fieldRow.errorAtLimit ? ` · error at limit: "${fieldRow.errorAtLimit}"` : ''}`);
+  }
+  const rest = Object.entries(ev).filter(([k]) => !SKIP.has(k));
+  if (rest.length) {
+    out.push('', '| Evidence | Value |', '|---|---|');
+    for (const [k, v] of rest) out.push(`| ${EV[k] || k} | ${cell(typeof v === 'object' ? JSON.stringify(v) : v)} |`);
+  }
+  out.push('');
+  if (field?.html) out.push('Client-side code of the field:', fence('html', field.html), '');
+  (ev.responses || []).forEach((x, i, all) => out.push(httpExchange(x, all.length > 1 ? `Request ${i + 1} of ${all.length}${i < all.length - 1 ? ' (linked, sent first)' : ' (the one judged)'}` : 'Request sent')));
+  if (ev.recheck) out.push(httpExchange(ev.recheck, 'Re-check: same unique values, valid field value (was it saved?)'));
+  return out.join('\n');
+}
+
+// Ideas the tester saved from the idea cards (to try by hand).
+export function ideasMarkdown(ideas = []) {
+  if (!ideas.length) return '';
+  return ['## Test ideas saved during testing', '', 'Ideas from the idea cards that the tester saved to try by hand:', '', ...ideas.map((x) => `- [ ] ${x.text} *(${x.source})*`), ''].join('\n');
+}
+
+export function buildMarkdown(d, { generator = 'Sankalpa', ideas = [] } = {}) {
+  const { run, suite, rows, formTitle, forms, settings, consent } = d;
+  const s = run.summary || {};
+  const captures = s.captures || {};
+  const lines = [
+    `# Sankalpa report — ${suite.name}`, '',
+    `**Target:** ${suite.origin}  `,
+    `**Run:** #${run.id}, started ${run.started_at} UTC${run.finished_at ? `, finished ${run.finished_at} UTC` : ''} · status **${run.status}**  `,
+    `**Result:** ${s.pass || 0} passed · ${s.fail || 0} failed · ${s.warn || 0} warnings · ${s.not_verified || 0} not verified  `,
+    `**Server checks:** ${consent ? `approved for ${suite.origin} on ${consent.approved_at} UTC` : 'not approved for this site'} · delay between requests **${settings?.throttleMs ?? 300} ms** · typing **${settings?.realTyping ? 'real keyboard' : 'emulated'}**`,
+    '', '## Summary', '',
+  ];
+  const byForm = new Map();
+  for (const r of [...rows].sort((a, b) => ORDER[a.status] - ORDER[b.status])) {
+    if (!byForm.has(r.case.form_key)) byForm.set(r.case.form_key, []);
+    byForm.get(r.case.form_key).push(r);
+  }
+  for (const [k, list] of byForm) {
+    lines.push(`### ${formTitle[k] || k}`, '', '| Result | Test case | Check | Details | Change |', '|---|---|---|---|---|');
+    for (const r of list) lines.push(`| ${LABEL[r.status]} | ${cell(r.case.title)}${r.case.builtin ? '' : ' *(custom)*'} | ${PART_LABEL[r.case.part] || r.case.part} | ${cell(r.detail)} | ${r.change || ''} |`);
+    lines.push('');
+  }
+
+  lines.push('## Details', '');
+  for (const [k, list] of byForm) {
+    const form = forms.find((f) => f.key === k);
+    lines.push(`### ${formTitle[k] || k}`, '');
+    if (form) {
+      lines.push(formFacts(form).map(([a, b]) => `**${a}:** ${cell(b)}`).join(' · '), '');
+      if (form.submitHtml) lines.push('Submit button (client-side code):', fence('html', form.submitHtml), '');
+      const cap = captures[k];
+      if (cap) {
+        lines.push(`#### The real submit Sankalpa captured (${cap.requests.length} request${cap.requests.length === 1 ? '' : 's'})`, '');
+        if (cap.blocked?.disabled) lines.push(`The submit button was disabled after filling valid values${cap.blocked.invalid?.length ? ` (still invalid: ${cap.blocked.invalid.join(', ')})` : ''}.`, '');
+        lines.push('Values typed into the form:', '', '| Field | Value |', '|---|---|', ...Object.entries(cap.markers || {}).map(([f, v]) => `| ${f} | \`${cell(v)}\` |`), '');
+        if (Object.keys(cap.map || {}).length) lines.push('Where each field ends up in the request:', '', '| Field | Request # | JSON path |', '|---|---|---|', ...Object.entries(cap.map).flatMap(([f, m]) => (m.locations || [m]).map((l) => `| ${f} | ${l.req + 1}${l.req === m.req ? ' (judged)' : ''} | ${l.paths.map((p) => `\`${p.join('.')}\``).join(', ')} |`)), '');
+        if (cap.deps?.length) lines.push('Linked requests:', ...cap.deps.map((x) => `- request ${x.req + 1} \`${x.path.join('.')}\` takes \`${x.fromPath.join('.')}\` from the reply to request ${x.fromReq + 1}`), '');
+        cap.requests.forEach((r, i) => lines.push(httpExchange({ ...r, text: r.response }, `Captured request ${i + 1}`)));
+      }
+    }
+    const rowsByField = Object.fromEntries((form ? fieldRows(form, settings) : []).map((x) => [x.key, x]));
+    for (const r of list) {
+      const field = form?.fields.find((f) => f.key === r.case.field_key) || null;
+      lines.push(caseDetail(r, field, field ? rowsByField[field.key] : null), '');
+    }
+  }
+  lines.push(ideasMarkdown(ideas), fieldsMarkdown(forms, settings), '---', `Generated by ${generator}. Server checks create real records on the target (test accounts, comments); the values typed above identify them.`);
+  return lines.join('\n');
+}

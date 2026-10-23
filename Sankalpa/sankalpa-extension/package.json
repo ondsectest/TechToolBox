@@ -1,0 +1,14 @@
+{
+  "name": "sankalpa-extension",
+  "version": "0.6.2",
+  "private": true,
+  "type": "module",
+  "description": "Sankalpa as a Chrome DevTools extension. Shares its engine with ../form-scanner.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build.mjs && node --test test/*.test.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "license": "MIT",
+  "author": "Santhosh Tuppad"
+}

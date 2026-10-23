@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Sankalpa — Form Testing",
+  "short_name": "Sankalpa",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwYqVkw02035OZlQZgE3tvHNM9skYpTSaZ6BzigfiyFAiJUurTg2/Ts8RRnVVXmEyJEHp767t0QaKyamyzd01oFHiKAOqXqs4YOYb73p/y2bYqRdQv13WlTG4FPZNRrdnvgMXRyR/KX/BuPu/IuLlCTO845katFUEMAXzKYdWIPGji8qF35QSAz/3jnxjkDlLc4U0bYOve+EZ4WWkW3Crgg3RrPE2wwJ7qUw9cGt4Ks9jUBMKAi1nt1cRrm3oIdh0g1Ec9hJhGPdpLxSCqTAZawTPlT/1eKHMHWbEJs+x25JEJDwyYAntpQfPalU0/QjO8ZVBcwIypuvVL3KHVVwR+QIDAQAB",
+  "version": "0.6.2",
+  "description": "Tests web forms: first-field focus, length limits, emoji counting, and whether the server enforces the same rules as the browser.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "devtools_page": "devtools.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://localhost/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "optional_permissions": [
+    "debugger"
+  ]
+}

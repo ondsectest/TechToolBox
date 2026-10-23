@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+
+# Sankalpa: local data and private files never belong in the repository
+data/
+dist/
+keys/
+*.pem
+*.crx
+test/.*

@@ -1,0 +1,22 @@
+{
+  "name": "sankalpa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web app that discovers forms on a target site and tests focus, length limits and server-side validation parity.",
+  "type": "module",
+  "bin": {
+    "sankalpa": "src/server.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "playwright": "^1.64.1"
+  },
+  "license": "MIT",
+  "author": "Santhosh Tuppad"
+}
