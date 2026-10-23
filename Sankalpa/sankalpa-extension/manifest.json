@@ -3,7 +3,7 @@
   "name": "Sankalpa — Form Testing",
   "short_name": "Sankalpa",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwYqVkw02035OZlQZgE3tvHNM9skYpTSaZ6BzigfiyFAiJUurTg2/Ts8RRnVVXmEyJEHp767t0QaKyamyzd01oFHiKAOqXqs4YOYb73p/y2bYqRdQv13WlTG4FPZNRrdnvgMXRyR/KX/BuPu/IuLlCTO845katFUEMAXzKYdWIPGji8qF35QSAz/3jnxjkDlLc4U0bYOve+EZ4WWkW3Crgg3RrPE2wwJ7qUw9cGt4Ks9jUBMKAi1nt1cRrm3oIdh0g1Ec9hJhGPdpLxSCqTAZawTPlT/1eKHMHWbEJs+x25JEJDwyYAntpQfPalU0/QjO8ZVBcwIypuvVL3KHVVwR+QIDAQAB",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Tests web forms: first-field focus, length limits, emoji counting, and whether the server enforces the same rules as the browser.",
   "minimum_chrome_version": "116",
   "icons": {
