@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Review Red Flags</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="24" height="24">
+    <h1>Review Red Flags</h1>
+  </header>
+
+  <p id="tabStatus" class="tab-status">Checking this tab…</p>
+  <div class="row top-row">
+    <button id="showBtn" type="button" class="primary">Show flagged reviews</button>
+    <button id="exportBtn" type="button">Export HTML report…</button>
+  </div>
+
+  <section class="panel" aria-labelledby="loadHeading">
+    <div class="switch-row">
+      <div>
+        <h2 id="loadHeading">Load all reviews</h2>
+        <p class="hint">Loads review batches for you, no scrolling needed. Keeps going if you switch tabs. When it's done you can export an HTML report.</p>
+      </div>
+      <button id="loadSwitch" type="button" role="switch" aria-checked="false" aria-labelledby="loadHeading" class="switch"><span class="knob"></span></button>
+    </div>
+
+    <div id="progress" class="progress" hidden>
+      <div class="bar"><span id="progressFill"></span></div>
+      <p id="loadStatus" class="load-status" aria-live="polite"></p>
+    </div>
+
+    <div class="field-row">
+      <label for="loadLimit">Stop after</label>
+      <input type="number" id="loadLimit" min="1" step="100" inputmode="numeric">
+      <span>reviews</span>
+      <label class="check inline"><input type="checkbox" id="noLimit"> No limit</label>
+    </div>
+    <div class="field-row">
+      <label for="throttleMs">Wait</label>
+      <input type="number" id="throttleMs" min="0" max="20000" step="100" inputmode="numeric">
+      <span>ms between requests</span>
+    </div>
+    <p class="hint">Raise the wait if Google Play starts refusing requests (rate limiting). 0 = no wait, max 20000.</p>
+    <label class="check"><input type="checkbox" id="askExport"> Ask to export an HTML report when loading finishes</label>
+  </section>
+
+  <label for="terms" class="label">Words and phrases to flag</label>
+  <p class="hint">One per line. End a word with <code>*</code> to match its endings (<code>crash*</code> matches crashes, crashing). Lines starting with <code>#</code> are notes.</p>
+  <textarea id="terms" rows="10" spellcheck="false"></textarea>
+  <p id="termCount" class="hint"></p>
+
+  <details class="pleasant">
+    <summary>Pleasant words (for the HTML report)</summary>
+    <p class="hint">The report sorts reviews into pleasant, mixed, neutral and unpleasant using both lists. Same format as above.</p>
+    <textarea id="pleasantTerms" rows="8" spellcheck="false" aria-label="Pleasant words and phrases"></textarea>
+    <p id="pleasantCount" class="hint"></p>
+  </details>
+
+  <label class="check"><input type="checkbox" id="autoOpen"> Open the list automatically when new matches appear</label>
+  <label class="check"><input type="checkbox" id="highlight"> Also highlight the words on the Play Store page</label>
+
+  <div class="row">
+    <button id="saveBtn" type="button" class="primary">Save words</button>
+    <button id="resetBtn" type="button">Reset to default words</button>
+  </div>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+
+  <footer>Built by <a href="https://www.linkedin.com/in/santhosh-tuppad-338b7412/" target="_blank" rel="noopener noreferrer">Santhosh Tuppad</a></footer>
+
+  <script src="words.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

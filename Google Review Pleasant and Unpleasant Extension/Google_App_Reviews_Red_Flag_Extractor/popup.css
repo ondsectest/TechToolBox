@@ -1,0 +1,129 @@
+/* Review Red Flags popup. Built by Santhosh Tuppad. */
+:root {
+  --bg: #ffffff;
+  --surface: #f6f7f9;
+  --border: #d9dce1;
+  --text: #1f2328;
+  --muted: #5f6670;
+  --accent: #c62828;
+  --accent-hover: #a51f1f;
+  --ok: #1e7b34;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e2126;
+    --surface: #262a30;
+    --border: #3a3f47;
+    --text: #e8eaed;
+    --muted: #a3a9b3;
+    --accent: #e53935;
+    --accent-hover: #ef5350;
+    --ok: #6fcf87;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  width: 360px;
+  margin: 0;
+  padding: 14px 16px 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+h1 { font-size: 16px; margin: 0; font-weight: 600; }
+
+.tab-status { margin: 0 0 8px; color: var(--muted); }
+.label { display: block; margin-top: 14px; font-weight: 600; }
+.hint { margin: 2px 0 6px; color: var(--muted); font-size: 12px; }
+code { background: var(--surface); border-radius: 3px; padding: 0 3px; }
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+textarea:focus, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.check { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; }
+.check input { margin: 2px 0 0; accent-color: var(--accent); }
+
+.row { display: flex; gap: 8px; margin-top: 12px; }
+button {
+  font: inherit;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover { background: var(--accent-hover); }
+.top-row { margin-top: 0; }
+.top-row button { flex: 1 1 0; }
+.top-row button[disabled] { opacity: 0.5; cursor: default; }
+details.pleasant { margin-top: 10px; }
+details.pleasant summary { cursor: pointer; font-weight: 600; }
+
+.panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+h2 { font-size: 14px; margin: 0; font-weight: 600; }
+.switch-row { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.switch {
+  flex: none; position: relative; width: 40px; height: 24px; padding: 0;
+  border-radius: 999px; border: 0; background: #b9bec6; margin-top: 2px;
+}
+.switch .knob {
+  position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 0.15s;
+}
+.switch[aria-checked="true"] { background: #1a73e8; }
+.switch[aria-checked="true"] .knob { transform: translateX(16px); }
+.switch[disabled] { opacity: 0.5; cursor: default; }
+
+.progress { margin: 10px 0 4px; }
+.progress[hidden] { display: none; }
+.bar { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; background: #1a73e8; transition: width 0.3s; }
+.progress.indeterminate .bar span { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.load-status { margin: 4px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+.load-status.error { color: var(--accent); }
+
+.field-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.field-row input[type="number"] {
+  width: 84px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.field-row input:disabled { opacity: 0.5; }
+.check.inline { margin: 0 0 0 6px; align-items: center; }
+.check.inline input { margin: 0; }
+
+.status { min-height: 18px; margin: 8px 0 0; color: var(--ok); }
+.status.error { color: var(--accent); }
+
+footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

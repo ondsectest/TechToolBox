@@ -1,0 +1,14 @@
+/* Review Red Flags: highlights added to the Play Store page itself. Built by Santhosh Tuppad. */
+mark.rwf-mark {
+  background: #ffd54f !important;
+  color: #1a1a1a !important;
+  border-radius: 3px;
+  padding: 0 2px;
+  box-shadow: inset 0 -2px 0 #d9a400;
+}
+
+.rwf-flash {
+  outline: 3px solid #c62828 !important;
+  outline-offset: 6px;
+  border-radius: 8px;
+}
