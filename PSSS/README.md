@@ -126,3 +126,7 @@ store-assets/    Chrome Web Store listing assets (screenshots, store icon)
 No network requests anywhere in the codebase. The only thing stored is the
 user's own on/off preference, via `chrome.storage.sync` (local to the
 browser, synced only across the user's own signed-in Chrome instances).
+
+## Credits
+
+Built by Santhosh Tuppad.
